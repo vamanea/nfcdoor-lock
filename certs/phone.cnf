@@ -1,0 +1,18 @@
+[ req ]
+default_bits            = 2048
+default_keyfile         = ./phonekey.key
+default_md              = sha1
+prompt                  = no
+distinguished_name	= name
+
+
+[name ]
+countryName             = UK
+stateOrProvinceName     = Here
+localityName            = There
+0.organizationName	= Example Inc
+commonName              = Example Inc Phone
+emailAddress            = door@key.co.uk
+
+
+

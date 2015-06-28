@@ -1,0 +1,20 @@
+[ req ]
+default_bits            = 2048
+default_keyfile         = ./cakey.pem
+default_md              = sha1
+prompt                  = no
+distinguished_name      = root_ca_distinguished_name
+x509_extensions = v3_ca
+
+[ root_ca_distinguished_name ]
+countryName             = UK
+stateOrProvinceName     = Here
+localityName            = There
+0.organizationName      = Example Inc
+commonName              = Example Inc Root CA
+emailAddress            = door@lock.co.uk
+
+[ v3_ca ]
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid:always,issuer:always
+basicConstraints = CA:true
