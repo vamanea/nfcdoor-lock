@@ -204,21 +204,43 @@ main(int argc, const char *argv[])
 			X509_STORE* store;
 			X509* phone = NULL;
 			X509_STORE_CTX *ctx;
+            int ret;
+            FILE *f = fopen("session.der", "w");
+            fwrite(cert, 1, certlen, f);
+            fclose(f);
 
 			phone = d2i_X509(NULL, (const unsigned char **)&cert, certlen);
+            if(phone == NULL) {
+                printf("Certificate in der failed to decode!\n");
+            }
 			cert = cert - certlen;
 			ctx = X509_STORE_CTX_new();
 			store = X509_STORE_new();
-			X509_STORE_load_locations(store, "certs/ca.pem", NULL);
+			ret = X509_STORE_load_locations(store, "ecc/cert.pem", NULL);
+             if (ret != 1)
+                printf("Error loading CA cert or chain file\n");
+
 			X509_STORE_set_default_paths(store);
 
 			X509_STORE_CTX_init(ctx, store, phone, NULL);
 
 			printf("Verifying Certificate\n");
 			if (X509_verify_cert(ctx) == 0) {
-				printf("Certificate Valid\n");
+                X509 *error_cert;
+                BIO *outbio  = BIO_new_fp(stdout, BIO_NOCLOSE);
+                X509_NAME *certsubject = NULL;
+                
+				printf("Certificate Valid %u\n", X509_STORE_CTX_get_error(ctx));
+                printf("Valid error: %s\n", X509_verify_cert_error_string(ctx->error));
+                /*  get the offending certificate causing the failure */
+                error_cert  = X509_STORE_CTX_get_current_cert(ctx);
+                certsubject = X509_NAME_new();
+                certsubject = X509_get_subject_name(error_cert);
+                printf("Verification failed cert:");
+                X509_NAME_print_ex(outbio, certsubject, 0, XN_FLAG_MULTILINE);
+                printf("\n");
 
-				printf("Verifying Signature\n");
+                printf("Verifying Signature\n");
 
 				EVP_PKEY* key = X509_get_pubkey(phone);
 
@@ -226,7 +248,7 @@ main(int argc, const char *argv[])
 				const EVP_MD *type;
 
 				EVP_MD_CTX_init(&ct);
-				type = EVP_sha1();
+				type = EVP_sha256();
 
 				EVP_VerifyInit_ex(&ct,type, NULL);
 				EVP_VerifyUpdate(&ct,challenge,16);
