@@ -84,7 +84,6 @@ main(int argc, const char *argv[])
 	
 	printf("\nRunning checks...\n");
     
-    OpenSSL_add_all_algorithms();
     ERR_load_crypto_strings();
 
 	if (context == NULL) {
@@ -114,6 +113,9 @@ main(int argc, const char *argv[])
 		}
 
 		printf("NFC reader: %s opened\n", nfc_device_get_name(pnd));
+		
+	    OpenSSL_add_all_algorithms();
+
 
 		const nfc_modulation nmMifare = {
 			.nmt = NMT_ISO14443A,
@@ -235,15 +237,34 @@ main(int argc, const char *argv[])
 
 			printf("Verifying Certificate\n");
 			if (X509_verify_cert(ctx) > 0) {
+				char buf[256];
+				int loc;
+				X509_NAME_ENTRY *e;
+
 				printf("Certificate Valid %u\n", X509_STORE_CTX_get_error(ctx));
 
                 /*  get the offending certificate causing the failure */
                 error_cert  = X509_STORE_CTX_get_current_cert(ctx);
                 certsubject = X509_NAME_new();
-                certsubject = X509_get_subject_name(error_cert);
-                printf("Verification cert:");
-                X509_NAME_print_ex(outbio, certsubject, 0, XN_FLAG_MULTILINE);
-                printf("\n");
+                certsubject = X509_get_subject_name(phone);
+				
+				X509_NAME_oneline(certsubject,buf,256);
+
+                printf("Verification cert: %s\n", buf);
+
+				loc = -1;
+				for (;;) {
+					loc = X509_NAME_get_index_by_NID(certsubject, NID_commonName, loc);
+					if (loc == -1)
+							break;
+					e = X509_NAME_get_entry(certsubject, loc);
+					/* Do something with e */
+					ASN1_STRING *s = X509_NAME_ENTRY_get_data(e);
+					memset(buf, 0, sizeof(buf));
+					strncpy(buf, s->data, s->length);
+					printf("Common name: %s\n", buf);
+					print_hex(s->data, s->length);
+				}
 
                 printf("Verifying Signature\n");
 
