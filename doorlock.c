@@ -83,6 +83,9 @@ main(int argc, const char *argv[])
 	nfc_init(&context);
 	
 	printf("\nRunning checks...\n");
+    
+    OpenSSL_add_all_algorithms();
+    ERR_load_crypto_strings();
 
 	if (context == NULL) {
 		printf("Unable to init libnfc (malloc)\n");
@@ -204,6 +207,11 @@ main(int argc, const char *argv[])
 			X509_STORE* store;
 			X509* phone = NULL;
 			X509_STORE_CTX *ctx;
+            X509 *error_cert;
+            BIO *outbio  = BIO_new_fp(stdout, BIO_NOCLOSE);
+            X509_NAME *certsubject = NULL;
+
+
             int ret;
             FILE *f = fopen("session.der", "w");
             fwrite(cert, 1, certlen, f);
@@ -225,18 +233,14 @@ main(int argc, const char *argv[])
 			X509_STORE_CTX_init(ctx, store, phone, NULL);
 
 			printf("Verifying Certificate\n");
-			if (X509_verify_cert(ctx) == 0) {
-                X509 *error_cert;
-                BIO *outbio  = BIO_new_fp(stdout, BIO_NOCLOSE);
-                X509_NAME *certsubject = NULL;
-                
+			if (X509_verify_cert(ctx) > 0) {
 				printf("Certificate Valid %u\n", X509_STORE_CTX_get_error(ctx));
-                printf("Valid error: %s\n", X509_verify_cert_error_string(ctx->error));
+
                 /*  get the offending certificate causing the failure */
                 error_cert  = X509_STORE_CTX_get_current_cert(ctx);
                 certsubject = X509_NAME_new();
                 certsubject = X509_get_subject_name(error_cert);
-                printf("Verification failed cert:");
+                printf("Verification cert:");
                 X509_NAME_print_ex(outbio, certsubject, 0, XN_FLAG_MULTILINE);
                 printf("\n");
 
@@ -262,7 +266,16 @@ main(int argc, const char *argv[])
 				EVP_MD_CTX_cleanup(&ct);
 				EVP_cleanup();
 			} else {
-				printf("Certificate INValid\n");
+				printf("Certificate Invalid %u\n", X509_STORE_CTX_get_error(ctx));
+				printf("Valid error: %s\n", X509_verify_cert_error_string(ctx->error));
+				
+                /*  get the offending certificate causing the failure */
+                error_cert  = X509_STORE_CTX_get_current_cert(ctx);
+                certsubject = X509_NAME_new();
+                certsubject = X509_get_subject_name(error_cert);
+                printf("Failed certificate:");
+                X509_NAME_print_ex(outbio, certsubject, 0, XN_FLAG_MULTILINE);
+                printf("\n");
 			}
 
 			X509_STORE_CTX_free(ctx);
