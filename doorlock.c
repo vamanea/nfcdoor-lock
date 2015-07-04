@@ -213,10 +213,11 @@ main(int argc, const char *argv[])
 
 
             int ret;
-            FILE *f = fopen("session.der", "w");
+#if 0
+			FILE *f = fopen("session.der", "w");
             fwrite(cert, 1, certlen, f);
             fclose(f);
-
+#endif
 			phone = d2i_X509(NULL, (const unsigned char **)&cert, certlen);
             if(phone == NULL) {
                 printf("Certificate in der failed to decode!\n");
