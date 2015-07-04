@@ -1,14 +1,17 @@
 CC=cc
-CFLAGS=-g -I/usr/include -c -fdiagnostics-color=always
+CFLAGS=-g -I/usr/include -fdiagnostics-color=always
 LDFLAGS=-lnfc -lssl -lcrypto
- 
-all: doorlock.o doorlock
+
+
+all: doorlock certcheck
  
 doorlock: doorlock.o
 	$(CC) doorlock.o $(LDFLAGS) -o doorlock
- 
-doorlock.o: doorlock.c
-	$(CC) $(CFLAGS) doorlock.c
 
+certcheck: certcheck.o
+	$(CC) certcheck.o $(LDFLAGS) -o $@
+
+%.o: %.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c $<  -o $@
 clean:
-	rm -rf *.o doorlock
+	rm -rf *.o doorlock certcheck
