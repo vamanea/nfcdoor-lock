@@ -286,9 +286,13 @@ main(int argc, const char *argv[])
 				sig = d2i_ECDSA_SIG(NULL, &sig_copy, siglength);
     				printf("r: %s\n", BN_bn2hex(sig->r));
     				printf("s: %s\n", BN_bn2hex(sig->s));
-    				
+#if 0
 				do_sha256(digest, challenge, 16);
 				int verified = ECDSA_do_verify(digest, 32, sig, key);
+#else
+				//do_sha256(digest, challenge, 16);
+				int verified = ECDSA_do_verify(challenge, 16, sig, key);
+#endif
 				if(verified == 1) {
 					printf("Signature Valid\n");
 				} else if(verified == 0) {
