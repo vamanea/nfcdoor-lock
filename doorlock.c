@@ -76,6 +76,14 @@ bool check_answer(uint8_t *apdu, size_t apdulen)
 	return true;
 }
 
+
+void do_sha256(uint8_t *digest, const uint8_t *message, size_t len) {
+    SHA256_CTX ctx;
+    SHA256_Init(&ctx);
+    SHA256_Update(&ctx, message, len);
+    SHA256_Final(digest, &ctx);
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -84,7 +92,7 @@ main(int argc, const char *argv[])
 	
 	printf("\nRunning checks...\n");
     
-    ERR_load_crypto_strings();
+    	ERR_load_crypto_strings();
 
 	if (context == NULL) {
 		printf("Unable to init libnfc (malloc)\n");
@@ -185,7 +193,7 @@ main(int argc, const char *argv[])
 			memcpy(cert + (frag * framelen), rapdu, rapdulen);
 			printf("Read frag %u sent!\n", frag);
 		}
-		
+		int i;
 		printf("Sending lock challenge...\n");
 		memcpy(capdu, apdu_challenge, sizeof(apdu_challenge));
 		capdulen = sizeof(apdu_challenge);
@@ -209,27 +217,27 @@ main(int argc, const char *argv[])
 			X509_STORE* store;
 			X509* phone = NULL;
 			X509_STORE_CTX *ctx;
-            X509 *error_cert;
-            BIO *outbio  = BIO_new_fp(stdout, BIO_NOCLOSE);
-            X509_NAME *certsubject = NULL;
+            		X509 *error_cert;
+            		BIO *outbio  = BIO_new_fp(stdout, BIO_NOCLOSE);
+            		X509_NAME *certsubject = NULL;
 
 
-            int ret;
+            		int ret;
 #if 0
 			FILE *f = fopen("session.der", "w");
             fwrite(cert, 1, certlen, f);
             fclose(f);
 #endif
 			phone = d2i_X509(NULL, (const unsigned char **)&cert, certlen);
-            if(phone == NULL) {
-                printf("Certificate in der failed to decode!\n");
-            }
+            		if(phone == NULL) {
+                		printf("Certificate in der failed to decode!\n");
+            		}
 			cert = cert - certlen;
 			ctx = X509_STORE_CTX_new();
 			store = X509_STORE_new();
 			ret = X509_STORE_load_locations(store, "ecc/cert.pem", NULL);
-             if (ret != 1)
-                printf("Error loading CA cert or chain file\n");
+             		if (ret != 1)
+                		printf("Error loading CA cert or chain file\n");
 
 			X509_STORE_set_default_paths(store);
 
@@ -243,14 +251,14 @@ main(int argc, const char *argv[])
 
 				printf("Certificate Valid %u\n", X509_STORE_CTX_get_error(ctx));
 
-                /*  get the offending certificate causing the failure */
-                error_cert  = X509_STORE_CTX_get_current_cert(ctx);
-                certsubject = X509_NAME_new();
-                certsubject = X509_get_subject_name(phone);
+                		/*  get the offending certificate causing the failure */
+                		error_cert  = X509_STORE_CTX_get_current_cert(ctx);
+                		certsubject = X509_NAME_new();
+                		certsubject = X509_get_subject_name(phone);
 				
 				X509_NAME_oneline(certsubject,buf,256);
 
-                printf("Verification cert: %s\n", buf);
+                		printf("Verification cert: %s\n", buf);
 
 				loc = -1;
 				for (;;) {
@@ -266,27 +274,29 @@ main(int argc, const char *argv[])
 					print_hex(s->data, s->length);
 				}
 
-                printf("Verifying Signature\n");
+                		printf("Verifying Signature\n");
 
-				EVP_PKEY* key = X509_get_pubkey(phone);
-
+				EVP_PKEY *pkey = X509_get_pubkey(phone);
+				EC_KEY *key = EVP_PKEY_get1_EC_KEY(pkey);
+				uint8_t digest[32];
+				ECDSA_SIG *sig;
 				EVP_MD_CTX ct;
 				const EVP_MD *type;
-
-				EVP_MD_CTX_init(&ct);
-				type = EVP_sha256();
-
-				EVP_VerifyInit_ex(&ct,type, NULL);
-				EVP_VerifyUpdate(&ct,challenge,16);
-
-				if (EVP_VerifyFinal(&ct, signature, siglength, key) == 0) {
+				const unsigned char *sig_copy = signature;
+				sig = d2i_ECDSA_SIG(NULL, &sig_copy, siglength);
+    				printf("r: %s\n", BN_bn2hex(sig->r));
+    				printf("s: %s\n", BN_bn2hex(sig->s));
+    				
+				do_sha256(digest, challenge, 16);
+				int verified = ECDSA_do_verify(digest, 32, sig, key);
+				if(verified == 1) {
 					printf("Signature Valid\n");
-				} else {
+				} else if(verified == 0) {
 					printf("Signature INValid\n");
+				} else {
+					printf("Library error!\n");
 				}
 
-				EVP_MD_CTX_cleanup(&ct);
-				EVP_cleanup();
 			} else {
 				printf("Certificate Invalid %u\n", X509_STORE_CTX_get_error(ctx));
 				printf("Valid error: %s\n", X509_verify_cert_error_string(ctx->error));
